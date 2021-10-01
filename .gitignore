@@ -30,3 +30,6 @@ htmlcov/
 build/
 project.egg-info/
 setup.py
+
+.xlsx
+.csv
