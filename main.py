@@ -31,7 +31,10 @@ def read_wechat_data(path):
     wechat_df.iloc[:, 0] = wechat_df.iloc[:, 0].astype("datetime64")
     wechat_df.iloc[:, 6] = wechat_df.iloc[:, 6].astype("float64")
     wechat_df = wechat_df.drop(wechat_df[wechat_df["收/支"] == "/"].index)
-    wechat_df.rename(columns={"交易时间": "时间", "当前状态": "支付状态", "金额(元)": "金额", "商品": "备注", "收/支": "类型"}, inplace=True)
+    wechat_df = wechat_df.drop(wechat_df[wechat_df["当前状态"] == "已全额退款"].index)
+    wechat_df.rename(
+        columns={"交易时间": "时间", "当前状态": "支付状态", "金额(元)": "金额", "商品": "备注", "收/支": "类型"},
+        inplace=True)
     wechat_df = wechat_df.drop(wechat_df[wechat_df["金额"] == 0].index)
     wechat_df.insert(1, "账户1", "微信", allow_duplicates=True)
     print(f"成功读取「微信」账单数据 {len(wechat_df)} 条")
@@ -45,17 +48,29 @@ def read_alipay_data(path):
     :param path:
     :return:
     """
-    alipay_df = pd.read_csv(path, header=4, skipfooter=7, encoding="gbk", engine="python")
-    alipay_df = alipay_df.iloc[:, [2, 10, 11, 6, 7, 8, 9]]
+    alipay_df = pd.read_csv(path, header=4, skipfooter=7, encoding="gb18030", engine="python")
+    alipay_df = alipay_df.iloc[:, [2, 10, 11, 6, 7, 8, 9, 13]]
     alipay_df = strip_in_data(alipay_df)
     alipay_df.iloc[:, 0] = alipay_df.iloc[:, 0].astype("datetime64")
     alipay_df.iloc[:, 6] = alipay_df.iloc[:, 6].astype("float64")
     alipay_df = alipay_df.drop(alipay_df[alipay_df["收/支"] == ""].index)
+    alipay_df = alipay_df.drop(alipay_df[alipay_df["收/支"] == "其他"].index)
+    alipay_df = alipay_df.drop(alipay_df[alipay_df["收/支"] == "不计收支"].index)
+    alipay_df['金额（元）'] = alipay_df['金额（元）'] - alipay_df['成功退款（元）']
     alipay_df.rename(
-        columns={"交易创建时间": "时间", "交易状态": "支付状态", "商品名称": "备注", "金额（元）": "金额", "类型": "交易类型", "收/支": "类型"}, inplace=True
+        columns={
+            "交易创建时间": "时间",
+            "交易状态": "支付状态",
+            "商品名称": "备注",
+            "金额（元）": "金额",
+            "类型": "交易类型",
+            "收/支": "类型"
+        },
+        inplace=True
     )
     alipay_df = alipay_df.drop(alipay_df[alipay_df["金额"] == 0].index)
     alipay_df.insert(1, "账户1", "支付宝", allow_duplicates=True)
+    alipay_df = alipay_df.drop(columns=['成功退款（元）'])
     print(f"成功读取「支付宝」账单数据 {len(alipay_df)} 条")
     return alipay_df
 
@@ -67,9 +82,9 @@ def add_category(data):
     :param data:
     :return:
     """
-    with open("category.yaml", 'r', encoding="utf-8") as f:
+    with open("category.yaml", "r", encoding="utf-8") as f:
         category_map = yaml.load(f, Loader=yaml.FullLoader)
-    data.insert(8, "分类", "其他", allow_duplicates=True)
+    data.insert(8, "分类", "其它", allow_duplicates=True)
     for index in range(len(data.iloc[:, 8])):
         pay_type2 = data.iloc[index, 4]
         pay_user = data.iloc[index, 5]
@@ -78,8 +93,8 @@ def add_category(data):
         pay_map = category_map.get(pay_type)
         for key, value in pay_map.items():
             if (
-                any(one in shop for one in value.get("备注"))
-                or any(two in pay_user for two in value.get("交易对方"))
+                any(two in pay_user for two in value.get("交易对方"))
+                or any(one in shop for one in value.get("备注"))
                 or any(three in pay_type2 for three in value.get("交易类型", []))
             ):
                 data.iloc[index, 8] = key
@@ -127,9 +142,11 @@ def main():
     for month_info in month_range:
         start_time, end_time = month_info
         month_data = data_merge[(data_merge["时间"] >= start_time) & (data_merge["时间"] <= end_time)]
-        save_path = f"data/result/{start_time}~{end_time}.xlsx"
+        save_path = f"data/result/{start_time}~{end_time}"
         print(f"已合并 {start_time}~{end_time} 数据 {len(month_data)} 条, 并存储到: {save_path}")
-        month_data.to_excel(save_path, index=False)
+        month_data.to_csv(save_path + ".csv", index=False)
+        month_data.to_excel(save_path + ".xlsx", index=False)
+    data_merge.to_excel(f"data/result/all.xlsx", index=False)
 
 
 if __name__ == "__main__":
