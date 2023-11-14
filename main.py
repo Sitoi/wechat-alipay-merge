@@ -13,7 +13,9 @@ def strip_in_data(df):
     :param df:
     :return:
     """
-    df = df.rename(columns={column_name: column_name.strip() for column_name in df.columns})
+    df = df.rename(
+        columns={column_name: column_name.strip() for column_name in df.columns}
+    )
     df = df.applymap(lambda x: x.strip().strip("¥") if isinstance(x, str) else x)
     return df
 
@@ -25,7 +27,9 @@ def read_wechat_data(path):
     :param path:
     :return:
     """
-    wechat_df = pd.read_csv(path, header=16, skipfooter=0, encoding="utf-8", engine="python")
+    wechat_df = pd.read_csv(
+        path, header=16, skipfooter=0, encoding="utf-8", engine="python"
+    )
     wechat_df = wechat_df.iloc[:, [0, 4, 7, 1, 2, 3, 5]]
     wechat_df = strip_in_data(wechat_df)
     wechat_df.iloc[:, 0] = wechat_df.iloc[:, 0].astype("datetime64")
@@ -34,7 +38,8 @@ def read_wechat_data(path):
     wechat_df = wechat_df.drop(wechat_df[wechat_df["当前状态"] == "已全额退款"].index)
     wechat_df.rename(
         columns={"交易时间": "时间", "当前状态": "支付状态", "金额(元)": "金额", "商品": "备注", "收/支": "类型"},
-        inplace=True)
+        inplace=True,
+    )
     wechat_df = wechat_df.drop(wechat_df[wechat_df["金额"] == 0].index)
     wechat_df.insert(1, "账户1", "微信", allow_duplicates=True)
     print(f"成功读取「微信」账单数据 {len(wechat_df)} 条")
@@ -48,7 +53,9 @@ def read_alipay_data(path):
     :param path:
     :return:
     """
-    alipay_df = pd.read_csv(path, header=4, skipfooter=7, encoding="gb18030", engine="python")
+    alipay_df = pd.read_csv(
+        path, header=4, skipfooter=7, encoding="gb18030", engine="python"
+    )
     alipay_df = alipay_df.iloc[:, [2, 10, 11, 6, 7, 8, 9, 13]]
     alipay_df = strip_in_data(alipay_df)
     alipay_df.iloc[:, 0] = alipay_df.iloc[:, 0].astype("datetime64")
@@ -56,7 +63,7 @@ def read_alipay_data(path):
     alipay_df = alipay_df.drop(alipay_df[alipay_df["收/支"] == ""].index)
     alipay_df = alipay_df.drop(alipay_df[alipay_df["收/支"] == "其他"].index)
     alipay_df = alipay_df.drop(alipay_df[alipay_df["收/支"] == "不计收支"].index)
-    alipay_df['金额（元）'] = alipay_df['金额（元）'] - alipay_df['成功退款（元）']
+    alipay_df["金额（元）"] = alipay_df["金额（元）"] - alipay_df["成功退款（元）"]
     alipay_df.rename(
         columns={
             "交易创建时间": "时间",
@@ -64,13 +71,13 @@ def read_alipay_data(path):
             "商品名称": "备注",
             "金额（元）": "金额",
             "类型": "交易类型",
-            "收/支": "类型"
+            "收/支": "类型",
         },
-        inplace=True
+        inplace=True,
     )
     alipay_df = alipay_df.drop(alipay_df[alipay_df["金额"] == 0].index)
     alipay_df.insert(1, "账户1", "支付宝", allow_duplicates=True)
-    alipay_df = alipay_df.drop(columns=['成功退款（元）'])
+    alipay_df = alipay_df.drop(columns=["成功退款（元）"])
     print(f"成功读取「支付宝」账单数据 {len(alipay_df)} 条")
     return alipay_df
 
@@ -108,8 +115,16 @@ def main():
     :return:
     """
 
-    path_wx = [os.path.join("data/wechat", one) for one in os.listdir("data/wechat") if one.endswith(".csv")]
-    path_zfb = [os.path.join("data/alipay", one) for one in os.listdir("data/alipay") if one.endswith(".csv")]
+    path_wx = [
+        os.path.join("data/wechat", one)
+        for one in os.listdir("data/wechat")
+        if one.endswith(".csv")
+    ]
+    path_zfb = [
+        os.path.join("data/alipay", one)
+        for one in os.listdir("data/alipay")
+        if one.endswith(".csv")
+    ]
     df_list = [pd.DataFrame(), pd.DataFrame()]
     print("------------ 开始读取账单 ------------\n")
     for wx_path in path_wx:
@@ -121,7 +136,9 @@ def main():
     print("\n------------ 开始账单去重 ------------\n")
     old_count = len(data_merge)
     data_merge = data_merge.drop_duplicates()
-    print(f"去重前条数为: {old_count}\n去重后条数为: {len(data_merge)}\n去重掉条数为: {old_count - len(data_merge)}")
+    print(
+        f"去重前条数为: {old_count}\n去重后条数为: {len(data_merge)}\n去重掉条数为: {old_count - len(data_merge)}"
+    )
     data_merge = add_category(data_merge)
     data_merge["时间"] = pd.to_datetime(data_merge["时间"]).dt.date
     end_day = data_merge["时间"].max()
@@ -129,11 +146,15 @@ def main():
     months = (end_day.year - start_day.year) * 12 + end_day.month - start_day.month
     month_range = [
         (
-            datetime.date(year=start_day.year + month // 12, month=month % 12 + 1, day=1),
+            datetime.date(
+                year=start_day.year + month // 12, month=month % 12 + 1, day=1
+            ),
             datetime.date(
                 year=start_day.year + month // 12,
                 month=month % 12 + 1,
-                day=calendar.monthrange(start_day.year + month // 12, month % 12 + 1)[-1],
+                day=calendar.monthrange(start_day.year + month // 12, month % 12 + 1)[
+                    -1
+                ],
             ),
         )
         for month in range(start_day.month - 1, start_day.month + months)
@@ -141,12 +162,14 @@ def main():
     print("\n------------ 开始拆分账单 ------------\n")
     for month_info in month_range:
         start_time, end_time = month_info
-        month_data = data_merge[(data_merge["时间"] >= start_time) & (data_merge["时间"] <= end_time)]
+        month_data = data_merge[
+            (data_merge["时间"] >= start_time) & (data_merge["时间"] <= end_time)
+        ]
         save_path = f"data/result/{start_time}~{end_time}"
         print(f"已合并 {start_time}~{end_time} 数据 {len(month_data)} 条, 并存储到: {save_path}")
         month_data.to_csv(save_path + ".csv", index=False)
         month_data.to_excel(save_path + ".xlsx", index=False)
-    data_merge.to_excel(f"data/result/all.xlsx", index=False)
+    data_merge.to_excel("data/result/all.xlsx", index=False)
 
 
 if __name__ == "__main__":
